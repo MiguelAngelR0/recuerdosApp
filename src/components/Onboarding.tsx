@@ -5,23 +5,33 @@ import { useSettings } from '@/lib/settings';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { Background } from './Background';
 import { Character } from './Characters';
+import { font } from '@/lib/theme';
+import { haptic } from '@/lib/motion';
 import { Glass } from './Glass';
+import { Pressy } from './Pressy';
 
 function Field(props: React.ComponentProps<typeof TextInput>) {
   const { pal } = useSettings();
   return (
     <Glass strong style={styles.field}>
-      <TextInput placeholderTextColor={pal.muted} style={[styles.input, { color: pal.text }]} {...props} />
+      <TextInput placeholderTextColor={pal.muted} selectionColor={pal.accent} style={[styles.input, { color: pal.text }]} {...props} />
     </Glass>
   );
 }
 
-function PrimaryButton({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
+function PrimaryButton({ label, onPress, busy, quiet }: { label: string; onPress: () => void; busy?: boolean; quiet?: boolean }) {
   const { pal } = useSettings();
   return (
-    <Pressable onPress={onPress} disabled={busy} style={[styles.primary, { backgroundColor: pal.accent }]} accessibilityRole="button">
-      {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>{label}</Text>}
-    </Pressable>
+    <Pressy
+      onPress={onPress}
+      disabled={busy}
+      scaleTo={0.97}
+      style={[styles.primary, quiet ? { borderWidth: 1.5, borderColor: pal.accent } : { backgroundColor: pal.accent }]}
+      accessibilityRole="button"
+      accessibilityState={{ busy }}
+    >
+      {busy ? <ActivityIndicator color={quiet ? pal.accent : '#FFFFFF'} /> : <Text style={[styles.primaryText, quiet && { color: pal.accent }]}>{label}</Text>}
+    </Pressy>
   );
 }
 
@@ -69,7 +79,10 @@ export function AuthScreen() {
       mode === 'login'
         ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
         : await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim() || 'Yo' } } });
-    if (res.error) setError(res.error.message);
+    if (res.error) {
+      haptic.error();
+      setError(res.error.message.includes('Invalid login') ? 'Correo o contraseña incorrectos.' : res.error.message);
+    }
     else if (mode === 'signup' && !res.data.session) setError('Revisa tu correo para confirmar la cuenta y luego inicia sesión.');
     setBusy(false);
   };
@@ -77,11 +90,11 @@ export function AuthScreen() {
   return (
     <Shell title="Recuerdos" subtitle={mode === 'login' ? 'Entra en vuestro rincón' : 'Crea tu cuenta'}>
       {mode === 'signup' && <Field placeholder="Tu nombre" value={name} onChangeText={setName} />}
-      <Field placeholder="Correo" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <Field placeholder="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
+      <Field placeholder="Correo" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" />
+      <Field placeholder="Contraseña" value={password} onChangeText={setPassword} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} secureTextEntry />
       {error && <Text style={styles.error}>{error}</Text>}
       <PrimaryButton label={mode === 'login' ? 'Entrar' : 'Crear cuenta'} onPress={submit} busy={busy} />
-      <Pressable onPress={() => setMode(mode === 'login' ? 'signup' : 'login')} style={styles.link}>
+      <Pressable onPress={() => setMode(mode === 'login' ? 'signup' : 'login')} style={styles.link} accessibilityRole="button">
         <Text style={[styles.linkText, { color: pal.text }]}>{mode === 'login' ? '¿No tienes cuenta? Créala' : 'Ya tengo cuenta'}</Text>
       </Pressable>
     </Shell>
@@ -90,6 +103,7 @@ export function AuthScreen() {
 
 export function PairScreen() {
   const { refresh } = useSession();
+  const { pal } = useSettings();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,24 +129,26 @@ export function PairScreen() {
   return (
     <Shell title="Conecta con tu pareja" subtitle="Uno crea el rincón y comparte el código. El otro lo escribe aquí.">
       <PrimaryButton label="Crear nuestro rincón" onPress={create} busy={busy} />
-      <Field placeholder="Código de tu pareja" value={code} onChangeText={setCode} autoCapitalize="characters" />
-      <PrimaryButton label="Unirme con el código" onPress={join} busy={busy} />
+      <Text style={[styles.or, { color: pal.muted }]}>o</Text>
+      <Field placeholder="Código de tu pareja" value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} />
+      <PrimaryButton label="Unirme con el código" onPress={join} busy={busy} quiet />
       {error && <Text style={styles.error}>{error}</Text>}
     </Shell>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 28, gap: 8 },
+  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 28, gap: 6 },
   characters: { flexDirection: 'row', justifyContent: 'center' },
-  title: { fontSize: 30, fontWeight: '800', textAlign: 'center' },
-  subtitle: { fontSize: 15, fontWeight: '600', textAlign: 'center', marginBottom: 12 },
+  title: { fontSize: 36, fontFamily: font.display, letterSpacing: -0.6, textAlign: 'center' },
+  subtitle: { fontSize: 16, lineHeight: 22, fontFamily: font.body, textAlign: 'center', marginBottom: 16 },
   form: { gap: 12 },
-  field: { borderRadius: 24, height: 50, justifyContent: 'center' },
-  input: { paddingHorizontal: 18, fontSize: 16, height: 50 },
+  field: { borderRadius: 16, height: 52, justifyContent: 'center' },
+  input: { paddingHorizontal: 18, fontSize: 16, height: 52, fontFamily: font.body },
   primary: { height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
-  error: { color: '#B3261E', fontWeight: '700', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 12, padding: 8 },
-  link: { alignItems: 'center', padding: 8 },
-  linkText: { fontWeight: '800' },
+  primaryText: { color: '#FFFFFF', fontFamily: font.heavy, fontSize: 16 },
+  or: { textAlign: 'center', fontFamily: font.bold, fontSize: 14 },
+  error: { color: '#B3261E', fontFamily: font.bold, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 12, padding: 10, overflow: 'hidden' },
+  link: { alignItems: 'center', justifyContent: 'center', minHeight: 44 },
+  linkText: { fontFamily: font.heavy, fontSize: 15 },
 });

@@ -1,3 +1,11 @@
+// Una sola familia redondeada para la interfaz y Fredoka para los títulos.
+export const font = {
+  display: 'Fredoka_600SemiBold',
+  body: 'Nunito_600SemiBold',
+  bold: 'Nunito_700Bold',
+  heavy: 'Nunito_800ExtraBold',
+};
+
 export type ThemeId = 'floral' | 'dia' | 'noche';
 
 export type Palette = {
@@ -23,6 +31,12 @@ export type Palette = {
   vine: string;
   leaf: string;
   pot: string;
+  sheet: string;
+  sheetText: string;
+  sheetMuted: string;
+  line: string;
+  field: string;
+  danger: string;
 };
 
 export const palettes: Record<ThemeId, Palette> = {
@@ -49,6 +63,12 @@ export const palettes: Record<ThemeId, Palette> = {
     vine: '#3E7A4B',
     leaf: '#5E9A62',
     pot: '#C26A4A',
+    sheet: '#FFF7F9',
+    sheetText: '#4A1D30',
+    sheetMuted: '#7A5566',
+    line: 'rgba(90,34,56,0.12)',
+    field: '#FFFFFF',
+    danger: '#B3261E',
   },
   dia: {
     label: 'Día',
@@ -73,6 +93,12 @@ export const palettes: Record<ThemeId, Palette> = {
     vine: '#3E7A4B',
     leaf: '#5E9A62',
     pot: '#C26A4A',
+    sheet: '#F7FBFF',
+    sheetText: '#14324A',
+    sheetMuted: '#4A6478',
+    line: 'rgba(23,58,82,0.12)',
+    field: '#FFFFFF',
+    danger: '#B3261E',
   },
   noche: {
     label: 'Noche',
@@ -97,6 +123,12 @@ export const palettes: Record<ThemeId, Palette> = {
     vine: '#7FA88A',
     leaf: '#6E9A7A',
     pot: '#7A4E5E',
+    sheet: '#221E46',
+    sheetText: '#F4F0FF',
+    sheetMuted: '#BDB4DE',
+    line: 'rgba(255,255,255,0.14)',
+    field: '#2D2858',
+    danger: '#FFB4AB',
   },
 };
 

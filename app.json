@@ -30,7 +30,8 @@
         {
           "photosPermission": "Recuerdos necesita acceso a tus fotos para guardar recuerdos."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "recuerdos"
   }

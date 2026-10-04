@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import { useSettings } from '@/lib/settings';
 
@@ -52,9 +52,21 @@ function Petal({ x, delay, height, color }: { x: number; delay: number; height: 
   );
 }
 
+// Con "Reducir movimiento" activado las ramas siguen, pero los pétalos no caen.
+function useReduceMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
+    return () => sub.remove();
+  }, []);
+  return reduced;
+}
+
 export function Background() {
   const { pal, flowers } = useSettings();
   const { width, height } = useWindowDimensions();
+  const reduced = useReduceMotion();
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <LinearGradient colors={pal.sky} style={StyleSheet.absoluteFill} />
@@ -87,7 +99,7 @@ export function Background() {
           </G>
         )}
       </Svg>
-      {flowers && PETALS.map((p) => <Petal key={p.delay} x={p.x * width} delay={p.delay} height={height} color={pal.blossom} />)}
+      {flowers && !reduced && PETALS.map((p) => <Petal key={p.delay} x={p.x * width} delay={p.delay} height={height} color={pal.blossom} />)}
     </View>
   );
 }

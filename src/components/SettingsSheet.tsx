@@ -1,70 +1,86 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { haptic } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { useSettings } from '@/lib/settings';
 import { supabase } from '@/lib/supabase';
-import { palettes, ThemeId } from '@/lib/theme';
+import { font, palettes, ThemeId } from '@/lib/theme';
 import { Icon, icons } from './Icon';
+import { Pressy } from './Pressy';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { theme, setTheme, flowers, setFlowers } = useSettings();
+  const { theme, setTheme, flowers, setFlowers, pal } = useSettings();
   const { coupleCode, partner } = useSession();
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.scrim}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Cerrar ajustes" />
-        <View style={[styles.sheet, { paddingBottom: 24 + insets.bottom }]}>
+        <View style={[styles.sheet, { backgroundColor: pal.sheet, paddingBottom: 20 + insets.bottom }]}>
+          <View style={[styles.grabber, { backgroundColor: pal.line }]} />
           <View style={styles.row}>
-            <Text style={styles.title}>Ajustes</Text>
-            <Pressable onPress={onClose} accessibilityLabel="Cerrar ajustes" style={styles.close}>
-              <Icon d={icons.close} size={20} color="#2E1A28" strokeWidth={2.4} />
-            </Pressable>
+            <Text style={[styles.title, { color: pal.sheetText }]}>Ajustes</Text>
+            <Pressy onPress={onClose} scaleTo={0.9} accessibilityRole="button" accessibilityLabel="Cerrar ajustes" style={[styles.close, { borderColor: pal.line }]}>
+              <Icon d={icons.close} size={18} color={pal.sheetText} strokeWidth={2.4} />
+            </Pressy>
           </View>
 
-          <Text style={styles.section}>TEMA</Text>
+          <Text style={[styles.section, { color: pal.sheetMuted }]}>Tema</Text>
           <View style={styles.themes}>
             {(Object.keys(palettes) as ThemeId[]).map((id) => {
               const p = palettes[id];
               const on = id === theme;
               return (
-                <Pressable
+                <Pressy
                   key={id}
-                  onPress={() => setTheme(id)}
-                  accessibilityRole="button"
+                  onPress={() => {
+                    if (!on) haptic.select();
+                    setTheme(id);
+                  }}
+                  scaleTo={0.96}
+                  accessibilityRole="radio"
                   accessibilityState={{ selected: on }}
-                  style={[styles.themeCard, { borderColor: on ? '#2E1A28' : 'rgba(46,26,40,0.12)' }]}
+                  accessibilityLabel={`Tema ${p.label}`}
+                  style={[styles.themeCard, { backgroundColor: pal.field, borderColor: on ? pal.accent : pal.line, borderWidth: on ? 2 : 1 }]}
                 >
                   <LinearGradient colors={p.sky} style={styles.swatch}>
+                    <View style={[styles.swatchSun, { backgroundColor: p.sun, opacity: p.sunOpacity }]} />
                     <View style={[styles.swatchHill, { backgroundColor: p.hill }]} />
                   </LinearGradient>
-                  <Text style={styles.themeLabel}>{p.label}</Text>
-                </Pressable>
+                  <Text style={[styles.themeLabel, { color: pal.sheetText }]}>{p.label}</Text>
+                </Pressy>
               );
             })}
           </View>
 
-          <View style={styles.toggle}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Flores de cerezo</Text>
-              <Text style={styles.toggleSub}>Ramas y pétalos cayendo en el fondo</Text>
-            </View>
-            <Switch value={flowers} onValueChange={setFlowers} trackColor={{ true: '#B0345E' }} accessibilityLabel="Flores de cerezo" />
-          </View>
-
-          <Text style={styles.section}>PAREJA</Text>
-          <View style={styles.toggle}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>{partner ? `Conectado con ${partner.name}` : 'Esperando a tu pareja'}</Text>
-              <Text style={styles.toggleSub}>Código para unirse: {coupleCode ?? '—'}</Text>
+          <View style={[styles.group, { backgroundColor: pal.field, borderColor: pal.line }]}>
+            <View style={styles.groupRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: pal.sheetText }]}>Flores de cerezo</Text>
+                <Text style={[styles.rowSub, { color: pal.sheetMuted }]}>Ramas y pétalos cayendo en el fondo</Text>
+              </View>
+              <Switch value={flowers} onValueChange={setFlowers} trackColor={{ true: pal.accent }} accessibilityLabel="Flores de cerezo" />
             </View>
           </View>
 
-          <Pressable onPress={() => supabase.auth.signOut()} style={styles.signOut} accessibilityRole="button">
-            <Text style={styles.signOutText}>Cerrar sesión</Text>
-          </Pressable>
+          <Text style={[styles.section, { color: pal.sheetMuted }]}>Pareja</Text>
+          <View style={[styles.group, { backgroundColor: pal.field, borderColor: pal.line }]}>
+            <View style={styles.groupRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: pal.sheetText }]}>{partner ? `Conectado con ${partner.name}` : 'Esperando a tu pareja'}</Text>
+                <Text style={[styles.rowSub, { color: pal.sheetMuted }]}>Código para unirse</Text>
+              </View>
+              <Text selectable style={[styles.code, { color: pal.accent }]}>
+                {coupleCode ?? '—'}
+              </Text>
+            </View>
+          </View>
+
+          <Pressy onPress={() => supabase.auth.signOut()} scaleTo={0.97} style={styles.signOut} accessibilityRole="button">
+            <Text style={[styles.signOutText, { color: pal.danger }]}>Cerrar sesión</Text>
+          </Pressy>
         </View>
       </View>
     </Modal>
@@ -72,46 +88,24 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
 }
 
 const styles = StyleSheet.create({
-  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(40,20,45,0.3)' },
-  sheet: {
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 22,
-    paddingHorizontal: 20,
-    gap: 14,
-  },
+  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(30,14,34,0.35)' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, paddingHorizontal: 20, gap: 12 },
+  grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, marginBottom: 4 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: '800', color: '#2E1A28' },
-  close: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(46,26,40,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  section: { fontSize: 13, fontWeight: '800', color: '#6A4A5A', letterSpacing: 0.8 },
-  themes: { flexDirection: 'row', gap: 12 },
-  themeCard: { flex: 1, alignItems: 'center', gap: 8, padding: 8, paddingBottom: 12, borderRadius: 18, borderWidth: 2.5, backgroundColor: '#FFFFFF' },
-  swatch: { width: '100%', height: 84, borderRadius: 12, overflow: 'hidden', justifyContent: 'flex-end' },
-  swatchHill: { height: 22 },
-  themeLabel: { fontSize: 14, fontWeight: '800', color: '#2E1A28' },
-  toggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 56,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(46,26,40,0.12)',
-  },
-  toggleTitle: { fontSize: 15, fontWeight: '800', color: '#2E1A28' },
-  toggleSub: { fontSize: 12, fontWeight: '600', color: '#6A4A5A' },
-  signOut: { alignSelf: 'center', padding: 12 },
-  signOutText: { color: '#B0345E', fontWeight: '800', fontSize: 15 },
+  title: { fontSize: 26, fontFamily: font.display, letterSpacing: -0.3 },
+  close: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  section: { fontSize: 14, fontFamily: font.bold, marginTop: 6 },
+  themes: { flexDirection: 'row', gap: 10 },
+  themeCard: { flex: 1, alignItems: 'center', gap: 8, padding: 6, paddingBottom: 10, borderRadius: 16 },
+  swatch: { width: '100%', height: 80, borderRadius: 11, overflow: 'hidden', justifyContent: 'flex-end' },
+  swatchSun: { position: 'absolute', top: 14, right: 14, width: 18, height: 18, borderRadius: 9 },
+  swatchHill: { height: 20 },
+  themeLabel: { fontSize: 14, fontFamily: font.heavy },
+  group: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  groupRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 16, paddingVertical: 10 },
+  rowTitle: { fontSize: 16, fontFamily: font.bold },
+  rowSub: { fontSize: 13, fontFamily: font.body },
+  code: { fontSize: 20, fontFamily: font.heavy, letterSpacing: 2, fontVariant: ['tabular-nums'] },
+  signOut: { alignSelf: 'center', paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
+  signOutText: { fontFamily: font.heavy, fontSize: 15 },
 });
