@@ -60,25 +60,30 @@ returns uuid language sql stable security definer set search_path = public as $$
   select couple_id from public.profiles where id = auth.uid();
 $$;
 
--- Crear pareja (el que la crea es el pollito) ----------------------------------
-create or replace function public.create_couple()
+-- Crear pareja (el que la crea elige si es pollito u osito) --------------------
+drop function if exists public.create_couple();
+create or replace function public.create_couple(chosen text default 'pollito')
 returns text language plpgsql security definer set search_path = public as $$
 declare
   new_id uuid;
   new_code text;
 begin
+  if chosen not in ('pollito', 'osito') then
+    chosen := 'pollito';
+  end if;
   insert into public.couples default values returning id, code into new_id, new_code;
-  update public.profiles set couple_id = new_id, character = 'pollito' where id = auth.uid();
+  update public.profiles set couple_id = new_id, character = chosen where id = auth.uid();
   return new_code;
 end;
 $$;
 
--- Unirse con el código (el que se une es el osito) -----------------------------
+-- Unirse con el código (el que se une es el personaje que queda libre) --------
 create or replace function public.join_couple(join_code text)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   target uuid;
   members int;
+  taken text;
 begin
   select id into target from public.couples where code = upper(join_code);
   if target is null then
@@ -88,7 +93,20 @@ begin
   if members >= 2 then
     raise exception 'no_couple';
   end if;
-  update public.profiles set couple_id = target, character = 'osito' where id = auth.uid();
+  select character into taken from public.profiles where couple_id = target limit 1;
+  update public.profiles
+    set couple_id = target, character = case when taken = 'osito' then 'pollito' else 'osito' end
+    where id = auth.uid();
+end;
+$$;
+
+-- Intercambiar personajes (el pollito pasa a ser osito y al revés) ------------
+create or replace function public.swap_characters()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update public.profiles
+    set character = case when character = 'pollito' then 'osito' else 'pollito' end
+    where couple_id = public.my_couple();
 end;
 $$;
 

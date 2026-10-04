@@ -15,6 +15,7 @@ import { EASE_OUT, haptic } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { useSettings } from '@/lib/settings';
 import { Memory, supabase } from '@/lib/supabase';
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { font } from '@/lib/theme';
 
 type Item = Memory & { url?: string };
@@ -157,17 +158,18 @@ function AddMemory({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSave: (text: string, image?: { uri: string; mimeType?: string | null }) => Promise<void>;
+  onSave: (text: string, image?: { base64?: string | null; mimeType?: string | null }) => Promise<void>;
 }) {
   const { pal } = useSettings();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [text, setText] = useState('');
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pick = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true });
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, allowsEditing: true, base64: true });
     if (!res.canceled) setImage(res.assets[0]);
   };
 
@@ -190,7 +192,7 @@ function AddMemory({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrap}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Cerrar" />
-        <View style={[styles.sheet, { backgroundColor: pal.sheet, paddingBottom: 20 + insets.bottom }]}>
+        <View style={[styles.sheet, { backgroundColor: pal.sheet, paddingBottom: 20 + Math.max(insets.bottom, keyboardHeight) }]}>
           <View style={[styles.grabber, { backgroundColor: pal.line }]} />
           <View style={styles.sheetHead}>
             <Text style={[styles.sheetTitle, { color: pal.sheetText }]}>Nuevo recuerdo</Text>

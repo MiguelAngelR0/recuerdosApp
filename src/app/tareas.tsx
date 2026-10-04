@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Background } from '@/components/Background';
 import { Glass } from '@/components/Glass';
@@ -31,6 +31,13 @@ export default function Tareas() {
   const [todos, setTodos] = useState<Todo[] | null>(null);
   const [filter, setFilter] = useState<Filter>('todas');
   const [text, setText] = useState('');
+
+  // La barra de escribir sube con el teclado, en iOS y en Android.
+  const keyboard = useAnimatedKeyboard();
+  const bottomInset = insets.bottom;
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.max(0, keyboard.height.get() - bottomInset) }],
+  }));
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('todos').select('*').order('done').order('created_at', { ascending: false }).returns<Todo[]>();
@@ -93,7 +100,7 @@ export default function Tareas() {
     todos === null ? null : all.length === 0 ? 'Aún no hay tareas. Escribe la primera abajo.' : filter === 'pendientes' ? 'Todo hecho. Buen trabajo.' : 'No hay tareas aquí.';
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={{ flex: 1 }}>
       <Background />
       <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
         <View style={styles.titleRow}>
@@ -170,7 +177,7 @@ export default function Tareas() {
         )}
       />
 
-      <View style={[styles.bottom, { bottom: insets.bottom + 20 }]}>
+      <Animated.View style={[styles.bottom, { bottom: insets.bottom + 20 }, barStyle]}>
         <RoundButton icon={icons.home} label="Inicio" showLabel={false} size={52} onPress={() => router.back()} />
         <Glass strong style={styles.inputWrap}>
           <TextInput
@@ -195,8 +202,8 @@ export default function Tareas() {
         >
           <Icon d={icons.plus} size={22} color="#FFFFFF" strokeWidth={2.5} />
         </Pressy>
-      </View>
-    </KeyboardAvoidingView>
+      </Animated.View>
+    </View>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSession } from '@/lib/session';
 import { useSettings } from '@/lib/settings';
-import { supabase, supabaseConfigured } from '@/lib/supabase';
+import { CharacterKind, supabase, supabaseConfigured } from '@/lib/supabase';
 import { Background } from './Background';
 import { Character } from './Characters';
 import { font } from '@/lib/theme';
@@ -35,16 +35,18 @@ function PrimaryButton({ label, onPress, busy, quiet }: { label: string; onPress
   );
 }
 
-function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function Shell({ title, subtitle, children, hideCharacters }: { title: string; subtitle: string; children: React.ReactNode; hideCharacters?: boolean }) {
   const { pal } = useSettings();
   return (
     <View style={{ flex: 1 }}>
       <Background />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.center}>
-        <View style={styles.characters}>
-          <Character kind="pollito" status="extrano" size={110} />
-          <Character kind="osito" status="extrano" size={110} />
-        </View>
+        {!hideCharacters && (
+          <View style={styles.characters}>
+            <Character kind="pollito" status="extrano" size={110} />
+            <Character kind="osito" status="extrano" size={110} />
+          </View>
+        )}
         <Text style={[styles.title, { color: pal.text }]}>{title}</Text>
         <Text style={[styles.subtitle, { color: pal.muted }]}>{subtitle}</Text>
         <View style={styles.form}>{children}</View>
@@ -105,13 +107,14 @@ export function PairScreen() {
   const { refresh } = useSession();
   const { pal } = useSettings();
   const [code, setCode] = useState('');
+  const [chosen, setChosen] = useState<CharacterKind>('pollito');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const create = async () => {
     setBusy(true);
     setError(null);
-    const { error: e } = await supabase.rpc('create_couple');
+    const { error: e } = await supabase.rpc('create_couple', { chosen });
     if (e) setError(e.message);
     await refresh();
     setBusy(false);
@@ -127,8 +130,33 @@ export function PairScreen() {
   };
 
   return (
-    <Shell title="Conecta con tu pareja" subtitle="Uno crea el rincón y comparte el código. El otro lo escribe aquí.">
-      <PrimaryButton label="Crear nuestro rincón" onPress={create} busy={busy} />
+    <Shell hideCharacters title="Conecta con tu pareja" subtitle="Uno elige su personaje y crea el rincón. El otro escribe el código y será el que quede libre.">
+      <Text style={[styles.pickTitle, { color: pal.text }]}>¿Qué quieres ser?</Text>
+      <View style={styles.pickRow}>
+        {(['pollito', 'osito'] as CharacterKind[]).map((k) => {
+          const on = k === chosen;
+          return (
+            <Pressy
+              key={k}
+              onPress={() => {
+                if (!on) haptic.select();
+                setChosen(k);
+              }}
+              scaleTo={0.96}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={k === 'pollito' ? 'Pollito' : 'Osito'}
+              style={{ flex: 1 }}
+            >
+              <Glass strong={on} style={[styles.pick, { borderColor: on ? pal.accent : pal.glassBorder, borderWidth: on ? 2.5 : 1 }]}>
+                <Character kind={k} status={on ? 'extrano' : 'durmiendo'} size={96} />
+                <Text style={[styles.pickLabel, { color: on ? pal.accent : pal.text }]}>{k === 'pollito' ? 'Pollito' : 'Osito'}</Text>
+              </Glass>
+            </Pressy>
+          );
+        })}
+      </View>
+      <PrimaryButton label={`Crear nuestro rincón como ${chosen === 'pollito' ? 'pollito' : 'osito'}`} onPress={create} busy={busy} />
       <Text style={[styles.or, { color: pal.muted }]}>o</Text>
       <Field placeholder="Código de tu pareja" value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} />
       <PrimaryButton label="Unirme con el código" onPress={join} busy={busy} quiet />
@@ -147,6 +175,10 @@ const styles = StyleSheet.create({
   input: { paddingHorizontal: 18, fontSize: 16, height: 52, fontFamily: font.body },
   primary: { height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#FFFFFF', fontFamily: font.heavy, fontSize: 16 },
+  pickTitle: { fontSize: 18, fontFamily: font.display, textAlign: 'center' },
+  pickRow: { flexDirection: 'row', gap: 12 },
+  pick: { borderRadius: 16, alignItems: 'center', paddingTop: 4, paddingBottom: 10, overflow: 'hidden' },
+  pickLabel: { fontSize: 15, fontFamily: font.heavy },
   or: { textAlign: 'center', fontFamily: font.bold, fontSize: 14 },
   error: { color: '#B3261E', fontFamily: font.bold, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 12, padding: 10, overflow: 'hidden' },
   link: { alignItems: 'center', justifyContent: 'center', minHeight: 44 },

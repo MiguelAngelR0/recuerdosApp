@@ -11,7 +11,12 @@ import { Pressy } from './Pressy';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { theme, setTheme, flowers, setFlowers, pal } = useSettings();
-  const { coupleCode, partner } = useSession();
+  const { coupleCode, partner, me, refresh } = useSession();
+  const swap = async () => {
+    haptic.select();
+    await supabase.rpc('swap_characters');
+    await refresh();
+  };
   const insets = useSafeAreaInsets();
 
   return (
@@ -76,6 +81,16 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
                 {coupleCode ?? '—'}
               </Text>
             </View>
+            <View style={[styles.divider, { backgroundColor: pal.line }]} />
+            <View style={styles.groupRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: pal.sheetText }]}>Eres {me?.character === 'osito' ? 'el osito' : 'el pollito'}</Text>
+                <Text style={[styles.rowSub, { color: pal.sheetMuted }]}>{partner ? `Intercambia los personajes con ${partner.name}` : 'Cambia de personaje'}</Text>
+              </View>
+              <Pressy onPress={swap} scaleTo={0.95} accessibilityRole="button" style={[styles.swap, { borderColor: pal.accent }]}>
+                <Text style={[styles.swapText, { color: pal.accent }]}>Cambiar</Text>
+              </Pressy>
+            </View>
           </View>
 
           <Pressy onPress={() => supabase.auth.signOut()} scaleTo={0.97} style={styles.signOut} accessibilityRole="button">
@@ -105,6 +120,9 @@ const styles = StyleSheet.create({
   groupRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 16, paddingVertical: 10 },
   rowTitle: { fontSize: 16, fontFamily: font.bold },
   rowSub: { fontSize: 13, fontFamily: font.body },
+  divider: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
+  swap: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1.5, justifyContent: 'center' },
+  swapText: { fontSize: 14, fontFamily: font.heavy },
   code: { fontSize: 20, fontFamily: font.heavy, letterSpacing: 2, fontVariant: ['tabular-nums'] },
   signOut: { alignSelf: 'center', paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   signOutText: { fontFamily: font.heavy, fontSize: 15 },

@@ -32,12 +32,22 @@ export async function loadMemories() {
   return data.map((m) => ({ ...m, url: m.image_path ? urls[m.image_path] : undefined }));
 }
 
-export async function addMemory(coupleId: string, myId: string, text: string, image?: { uri: string; mimeType?: string | null }) {
+// En el móvil, fetch() de un archivo local devuelve 0 bytes: la foto se sube vacía.
+// Por eso el selector nos da la foto en base64 y aquí la pasamos a bytes.
+function base64ToBytes(b64: string) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+export async function addMemory(coupleId: string, myId: string, text: string, image?: { base64?: string | null; mimeType?: string | null }) {
   let image_path: string | null = null;
   if (image) {
+    if (!image.base64) throw new Error('No se pudo leer la foto');
     const ext = image.mimeType?.split('/')[1] ?? 'jpg';
     image_path = `${coupleId}/${Date.now()}.${ext}`;
-    const body = await fetch(image.uri).then((r) => r.arrayBuffer());
+    const body = base64ToBytes(image.base64);
     const { error } = await supabase.storage.from('memories').upload(image_path, body, { contentType: image.mimeType ?? 'image/jpeg' });
     if (error) throw error;
   }
