@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,8 +12,8 @@ import { MemorySheet } from '@/components/MemorySheet';
 import { Pressy } from '@/components/Pressy';
 import { RoundButton } from '@/components/RoundButton';
 import { VineBoard } from '@/components/VineBoard';
-import { addMemory, deleteMemory, loadMemories, MemoryItem, reorderMemories, updateMemory } from '@/lib/memories';
-import { haptic } from '@/lib/motion';
+import { addMemory, deleteMemory, loadMemories, loadMemorySort, MemoryItem, MemorySort, reorderMemories, saveMemorySort, SORT_OPTIONS, sortMemories, updateMemory } from '@/lib/memories';
+import { EASE_OUT, haptic } from '@/lib/motion';
 import { useNotices } from '@/lib/notices';
 import { sendPush } from '@/lib/notify';
 import { markSeen } from '@/lib/seen';
@@ -32,6 +32,9 @@ export default function Recuerdos() {
   const [sheet, setSheet] = useState<MemoryItem | 'new' | null>(null);
   const [dragging, setDragging] = useState(false);
   const [partnerSorting, setPartnerSorting] = useState(false);
+  // Orden compartido: los dos veis siempre lo mismo y en el mismo orden.
+  const [sort, setSort] = useState<MemorySort>('custom');
+  const [menu, setMenu] = useState(false);
   const live = useRef<RealtimeChannel | null>(null);
   const reload = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partnerName = partner?.name ?? 'Tu pareja';
@@ -55,6 +58,14 @@ export default function Recuerdos() {
     load();
     seen();
     if (!me?.couple_id) return;
+    loadMemorySort(me.couple_id).then(setSort);
+    const couple = supabase
+      .channel(`couple-sort-${me.couple_id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'couples', filter: `id=eq.${me.couple_id}` }, ({ new: c }) => {
+        const mode = (c as { memory_sort?: MemorySort }).memory_sort;
+        if (mode) setSort(mode);
+      })
+      .subscribe();
     const changes = supabase
       .channel(`memories-${me.couple_id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'memories', filter: `couple_id=eq.${me.couple_id}` }, () => {
@@ -66,6 +77,7 @@ export default function Recuerdos() {
     const vine = supabase
       .channel(`vine-${me.couple_id}`, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'sorting' }, ({ payload }) => setPartnerSorting(!!payload?.active))
+      .on('broadcast', { event: 'sort' }, ({ payload }) => payload?.mode && setSort(payload.mode as MemorySort))
       .on('broadcast', { event: 'order' }, ({ payload }) => {
         const ids = payload?.ids as string[] | undefined;
         if (!ids) return;
@@ -75,6 +87,7 @@ export default function Recuerdos() {
     live.current = vine;
     return () => {
       supabase.removeChannel(changes);
+      supabase.removeChannel(couple);
       supabase.removeChannel(vine);
       live.current = null;
     };
@@ -82,9 +95,9 @@ export default function Recuerdos() {
 
   if (!me) return null;
   const nameOf = (id: string) => (id === me.id ? 'Tú' : partnerName);
-  const list = items ?? [];
+  const list = sortMemories(items ?? [], sort);
 
-  const broadcast = (event: 'sorting' | 'order', payload: object) => {
+  const broadcast = (event: 'sorting' | 'order' | 'sort', payload: object) => {
     live.current?.send({ type: 'broadcast', event, payload });
   };
 
@@ -94,24 +107,27 @@ export default function Recuerdos() {
     reorderMemories(ids).catch(() => load());
   };
 
-  const move = (m: MemoryItem, dir: -1 | 1) => {
-    const ids = list.map((x) => x.id);
-    const i = ids.indexOf(m.id);
-    const j = i + dir;
-    if (j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+  const chooseSort = (mode: MemorySort) => {
+    setMenu(false);
+    if (mode === sort) return;
     haptic.select();
-    reorder(ids);
+    // Al pasar a "nuestro orden" se guarda tal cual se ve ahora, para que no salte.
+    if (mode === 'custom') reorder(list.map((m) => m.id));
+    setSort(mode);
+    broadcast('sort', { mode });
+    saveMemorySort(mode).catch(() => loadMemorySort(me.couple_id!).then(setSort));
   };
 
   const editing = sheet && sheet !== 'new' ? (list.find((m) => m.id === sheet.id) ?? sheet) : null;
-  const editingIndex = editing ? list.findIndex((m) => m.id === editing.id) : -1;
 
   return (
     <View style={{ flex: 1 }}>
       <Background />
       <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
-        <Text style={[styles.title, { color: pal.text }]}>Nuestra enredadera</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: pal.text, flexShrink: 1 }]}>Nuestra enredadera</Text>
+          {list.length > 1 && <RoundButton icon={icons.sort} label="Ordenar recuerdos" showLabel={false} size={44} onPress={() => setMenu(true)} />}
+        </View>
         {partnerSorting ? (
           <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(180)}>
             <Glass style={styles.live}>
@@ -122,7 +138,7 @@ export default function Recuerdos() {
         ) : (
           <Text style={[styles.subtitle, { color: pal.muted }]}>
             {list.length > 1
-              ? 'Toca un recuerdo para editarlo. Mantén pulsado y arrástralo para cambiarlo de sitio.'
+              ? `${SORT_OPTIONS.find((o) => o.id === sort)?.label}. Mantén pulsado un recuerdo para moverlo.`
               : list.length === 1
                 ? 'Toca el recuerdo para editarlo.'
                 : `Tú y ${partnerName}`}
@@ -152,6 +168,13 @@ export default function Recuerdos() {
             onDragChange={(on) => {
               setDragging(on);
               broadcast('sorting', { active: on });
+              // Arrastrar es elegir "nuestro orden": se cambia para los dos.
+              if (on && sort !== 'custom') {
+                setItems(list);
+                setSort('custom');
+                broadcast('sort', { mode: 'custom' });
+                saveMemorySort('custom').catch(() => {});
+              }
             }}
           />
         </ScrollView>
@@ -172,12 +195,35 @@ export default function Recuerdos() {
         </Pressy>
       </View>
 
+      {menu && (
+        <>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenu(false)} accessibilityLabel="Cerrar menú" />
+          <Animated.View entering={FadeIn.duration(140).easing(EASE_OUT)} exiting={FadeOut.duration(120)} style={[styles.menu, { top: insets.top + 76 }]}>
+            <Glass strong style={styles.menuInner}>
+              {SORT_OPTIONS.map((o, i) => {
+                const on = o.id === sort;
+                return (
+                  <Pressy
+                    key={o.id}
+                    onPress={() => chooseSort(o.id)}
+                    scaleTo={0.98}
+                    accessibilityRole="menuitem"
+                    accessibilityState={{ selected: on }}
+                    style={[styles.menuItem, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: pal.line }]}
+                  >
+                    <Text style={[styles.menuText, { color: on ? pal.accent : pal.text }]}>{o.label}</Text>
+                    {on && <Icon d="M5 12l5 5 9-10" size={18} color={pal.accent} strokeWidth={2.6} />}
+                  </Pressy>
+                );
+              })}
+            </Glass>
+          </Animated.View>
+        </>
+      )}
+
       <MemorySheet
         visible={sheet !== null}
         memory={editing}
-        canMoveUp={editingIndex > 0}
-        canMoveDown={editingIndex >= 0 && editingIndex < list.length - 1}
-        onMove={(dir) => editing && move(editing, dir)}
         onClose={() => setSheet(null)}
         onSave={async (fields) => {
           if (editing) await updateMemory(editing, fields);
@@ -201,6 +247,11 @@ export default function Recuerdos() {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingBottom: 12, gap: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  menu: { position: 'absolute', right: 20, width: 260, zIndex: 50, transformOrigin: 'top right' },
+  menuInner: { borderRadius: 16 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 48, paddingHorizontal: 16 },
+  menuText: { fontSize: 15, fontFamily: font.bold },
   title: { fontSize: 34, fontFamily: font.display, letterSpacing: -0.5 },
   subtitle: { fontSize: 15, lineHeight: 20, fontFamily: font.body },
   live: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16 },

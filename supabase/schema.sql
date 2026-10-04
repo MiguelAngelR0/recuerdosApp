@@ -7,6 +7,11 @@ create table if not exists public.couples (
   created_at timestamptz not null default now()
 );
 
+-- Cómo se ordena la enredadera, igual para los dos: a mano o por la fecha en que pasó.
+alter table public.couples add column if not exists memory_sort text not null default 'custom';
+alter table public.couples drop constraint if exists couples_memory_sort_check;
+alter table public.couples add constraint couples_memory_sort_check check (memory_sort in ('custom', 'date_desc', 'date_asc'));
+
 -- Perfiles (uno por usuario) -------------------------------------------------
 create table if not exists public.profiles (
   id uuid primary key references auth.users on delete cascade,
@@ -122,6 +127,17 @@ begin
 end;
 $$;
 
+-- Cambiar el orden de la enredadera para la pareja
+create or replace function public.set_memory_sort(mode text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if mode not in ('custom', 'date_desc', 'date_asc') then
+    raise exception 'bad_mode';
+  end if;
+  update public.couples set memory_sort = mode where id = public.my_couple();
+end;
+$$;
+
 -- Intercambiar personajes (el pollito pasa a ser osito y al revés) ------------
 create or replace function public.swap_characters()
 returns void language plpgsql security definer set search_path = public as $$
@@ -205,5 +221,6 @@ begin
   begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.memories; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.todos; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.couples; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.timers; exception when duplicate_object then null; end;
 end $$;

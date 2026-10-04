@@ -79,3 +79,32 @@ export function toISODate(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+export type MemorySort = 'custom' | 'date_desc' | 'date_asc';
+
+export const SORT_OPTIONS: { id: MemorySort; label: string }[] = [
+  { id: 'date_desc', label: 'Más recientes arriba' },
+  { id: 'date_asc', label: 'Más antiguos arriba' },
+  { id: 'custom', label: 'Nuestro orden (arrastrando)' },
+];
+
+function happenedTime(m: Memory) {
+  return m.happened_on ? new Date(`${m.happened_on}T12:00:00`).getTime() : new Date(m.created_at).getTime();
+}
+
+// Devuelve los recuerdos de arriba abajo según el orden elegido por la pareja.
+export function sortMemories<T extends Memory>(list: T[], mode: MemorySort): T[] {
+  if (mode === 'custom') return list;
+  const dir = mode === 'date_desc' ? -1 : 1;
+  return [...list].sort((a, b) => dir * (happenedTime(a) - happenedTime(b)) || dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+}
+
+export async function loadMemorySort(coupleId: string): Promise<MemorySort> {
+  const { data } = await supabase.from('couples').select('memory_sort').eq('id', coupleId).maybeSingle<{ memory_sort: MemorySort }>();
+  return data?.memory_sort ?? 'custom';
+}
+
+export async function saveMemorySort(mode: MemorySort) {
+  const { error } = await supabase.rpc('set_memory_sort', { mode });
+  if (error) throw error;
+}
