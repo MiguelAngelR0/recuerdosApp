@@ -26,14 +26,24 @@ function Gate() {
   } else if (!me?.couple_id) {
     content = <PairScreen />;
   } else {
-    content = <Stack screenOptions={{ headerShown: false }} />;
+    // Fondo del tema en cada pantalla (sin él se ve un fogonazo blanco al cambiar)
+    // y deslizamiento lateral nativo, igual en iOS y Android.
+    content = (
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          contentStyle: { backgroundColor: pal.sky[0] },
+        }}
+      />
+    );
   }
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: pal.sky[0] }}>
       <StatusBar style={theme === 'noche' ? 'light' : 'dark'} />
       {content}
-    </>
+    </View>
   );
 }
 

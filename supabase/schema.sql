@@ -28,6 +28,12 @@ create table if not exists public.memories (
   created_at timestamptz not null default now()
 );
 
+-- Fecha en que pasó y orden en la enredadera (más alto = más arriba)
+alter table public.memories add column if not exists happened_on date;
+alter table public.memories add column if not exists position double precision;
+update public.memories set position = extract(epoch from created_at) where position is null;
+alter table public.memories alter column position set default extract(epoch from now());
+
 -- Tareas ----------------------------------------------------------------------
 create table if not exists public.todos (
   id uuid primary key default gen_random_uuid(),
@@ -125,10 +131,31 @@ create policy "ver perfiles" on public.profiles for select
 drop policy if exists "editar mi perfil" on public.profiles;
 create policy "editar mi perfil" on public.profiles for update using (id = auth.uid());
 
+-- Los dos podéis ver, editar y borrar cualquier recuerdo; al crearlo, el autor eres tú.
 drop policy if exists "recuerdos de la pareja" on public.memories;
-create policy "recuerdos de la pareja" on public.memories for all
-  using (couple_id = public.my_couple())
+drop policy if exists "recuerdos: ver" on public.memories;
+create policy "recuerdos: ver" on public.memories for select using (couple_id = public.my_couple());
+drop policy if exists "recuerdos: crear" on public.memories;
+create policy "recuerdos: crear" on public.memories for insert
   with check (couple_id = public.my_couple() and author_id = auth.uid());
+drop policy if exists "recuerdos: editar" on public.memories;
+create policy "recuerdos: editar" on public.memories for update
+  using (couple_id = public.my_couple()) with check (couple_id = public.my_couple());
+drop policy if exists "recuerdos: borrar" on public.memories;
+create policy "recuerdos: borrar" on public.memories for delete using (couple_id = public.my_couple());
+
+-- Reordenar la enredadera: recibe los ids de arriba abajo.
+create or replace function public.reorder_memories(ids uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  n int := coalesce(array_length(ids, 1), 0);
+begin
+  for i in 1..n loop
+    update public.memories set position = n - i + 1
+      where id = ids[i] and couple_id = public.my_couple();
+  end loop;
+end;
+$$;
 
 drop policy if exists "tareas de la pareja" on public.todos;
 create policy "tareas de la pareja" on public.todos for all
@@ -142,6 +169,9 @@ on conflict (id) do nothing;
 
 drop policy if exists "fotos de la pareja (ver)" on storage.objects;
 create policy "fotos de la pareja (ver)" on storage.objects for select
+  using (bucket_id = 'memories' and (storage.foldername(name))[1] = public.my_couple()::text);
+drop policy if exists "fotos de la pareja (borrar)" on storage.objects;
+create policy "fotos de la pareja (borrar)" on storage.objects for delete
   using (bucket_id = 'memories' and (storage.foldername(name))[1] = public.my_couple()::text);
 drop policy if exists "fotos de la pareja (subir)" on storage.objects;
 create policy "fotos de la pareja (subir)" on storage.objects for insert

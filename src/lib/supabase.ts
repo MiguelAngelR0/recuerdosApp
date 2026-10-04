@@ -34,6 +34,8 @@ export type Memory = {
   author_id: string;
   text: string;
   image_path: string | null;
+  happened_on: string | null;
+  position: number | null;
   created_at: string;
 };
 

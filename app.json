@@ -31,8 +31,10 @@
           "photosPermission": "Recuerdos necesita acceso a tus fotos para guardar recuerdos."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker"
     ],
-    "scheme": "recuerdos"
+    "scheme": "recuerdos",
+    "backgroundColor": "#FCE4EC"
   }
 }
