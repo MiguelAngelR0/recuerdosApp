@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, Text, View } from 'react-native';
@@ -7,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Glass } from '@/components/Glass';
 import { Pressy } from '@/components/Pressy';
 import { EASE_OUT, haptic } from './motion';
-import { clearBadge, registerPush } from './notify';
+import { clearBadge, onNotificationTap, registerPush } from './notify';
 import { useSession } from './session';
 import { useSettings } from './settings';
 import { supabase, Timer } from './supabase';
@@ -43,13 +42,12 @@ export function NoticesProvider({ children }: { children: ReactNode }) {
     clearBadge();
     const sub = AppState.addEventListener('change', (s) => s === 'active' && clearBadge());
     // Tocar una notificación lleva a su pantalla.
-    const tap = Notifications.addNotificationResponseReceivedListener((r) => {
-      const route = r.notification.request.content.data?.route;
+    const stopTap = onNotificationTap((route) => {
       if (route === '/recuerdos' || route === '/tareas' || route === '/temporizador') router.push(route);
     });
     return () => {
       sub.remove();
-      tap.remove();
+      stopTap();
     };
   }, [me?.id]);
 

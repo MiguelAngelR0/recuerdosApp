@@ -1,22 +1,46 @@
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
-// Con la app abierta ya enseñamos nuestro propio aviso: el banner nativo solo hace falta fuera de ella.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: false,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-  }),
-});
+type NotificationsModule = typeof import('expo-notifications');
+
+// Expo Go en Android ya no incluye las notificaciones: importarlas allí rompe la app.
+// Se cargan solo fuera de Expo Go (la APK o una development build); en Expo Go quedan los avisos dentro de la app.
+const unavailable = Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+let cached: NotificationsModule | null | undefined;
+
+function notifications(): NotificationsModule | null {
+  if (cached !== undefined) return cached;
+  if (unavailable) return (cached = null);
+  try {
+    cached = require('expo-notifications') as NotificationsModule;
+    // Con la app abierta ya enseñamos nuestro propio aviso: el banner nativo solo hace falta fuera de ella.
+    cached.setNotificationHandler({
+      handleNotification: async () => ({ shouldShowBanner: false, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: true }),
+    });
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+
+// Tocar una notificación: avisa con la ruta que llevaba.
+export function onNotificationTap(handler: (route: string) => void) {
+  const Notifications = notifications();
+  if (!Notifications) return () => {};
+  const sub = Notifications.addNotificationResponseReceivedListener((r) => {
+    const route = r.notification.request.content.data?.route;
+    if (typeof route === 'string') handler(route);
+  });
+  return () => sub.remove();
+}
 
 // Pide permiso, guarda el token push de este móvil en tu perfil y lo devuelve.
 // En Expo Go para Android no hay push remoto: se ignora sin romper nada.
 export async function registerPush(myId: string) {
+  const Notifications = notifications();
+  if (!Notifications) return null;
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
@@ -55,6 +79,8 @@ export async function sendPush(to: string | null | undefined, title: string, bod
 
 // Avisos locales del temporizador (fin de cada fase), para este móvil.
 export async function scheduleLocal(title: string, body: string, inSeconds: number) {
+  const Notifications = notifications();
+  if (!Notifications) return null;
   try {
     return await Notifications.scheduleNotificationAsync({
       content: { title, body, sound: 'default' },
@@ -66,9 +92,11 @@ export async function scheduleLocal(title: string, body: string, inSeconds: numb
 }
 
 export async function cancelLocal(ids: string[]) {
+  const Notifications = notifications();
+  if (!Notifications) return;
   await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})));
 }
 
 export function clearBadge() {
-  Notifications.setBadgeCountAsync(0).catch(() => {});
+  notifications()?.setBadgeCountAsync(0).catch(() => {});
 }
