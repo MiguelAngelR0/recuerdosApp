@@ -13,6 +13,15 @@ import { Pressy } from './Pressy';
 
 export type MemoryFields = { text: string; happenedOn: string | null; image?: PickedImage };
 
+// Los errores de Supabase no siempre son `Error`: se lee su mensaje y su pista igualmente.
+function errorText(e: unknown) {
+  if (e && typeof e === 'object' && 'message' in e) {
+    const { message, hint } = e as { message?: string; hint?: string };
+    return [message, hint].filter(Boolean).join(' ');
+  }
+  return 'Revisa la conexión e inténtalo otra vez.';
+}
+
 function longDate(d: Date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
@@ -72,7 +81,7 @@ export function MemorySheet({
       haptic.success();
     } catch (e) {
       haptic.error();
-      setError(e instanceof Error ? `No se pudo guardar: ${e.message}` : 'No se pudo guardar. Revisa la conexión e inténtalo otra vez.');
+      setError(`No se pudo guardar: ${errorText(e)}`);
     }
     setBusy(false);
   };
@@ -90,7 +99,7 @@ export function MemorySheet({
           try {
             await onDelete(memory);
           } catch (e) {
-            setError(e instanceof Error ? `No se pudo borrar: ${e.message}` : 'No se pudo borrar.');
+            setError(`No se pudo borrar: ${errorText(e)}`);
           }
           setBusy(false);
         },
