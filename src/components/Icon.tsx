@@ -14,6 +14,12 @@ export const icons = {
   grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   sort: 'M7 4v16M4 7l3-3 3 3M17 20V4M14 17l3 3 3-3',
+  play: 'M8 5v14l11-7z',
+  pause: 'M8 5v14M16 5v14',
+  reset: 'M4 4v6h6M5.6 15a7 7 0 1 0 1.5-7.3L4 10',
+  edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
+  timer: 'M12 8v5l3 2M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
+  minus: 'M5 12h14',
 };
 
 export function Icon({ d, size = 24, color, strokeWidth = 2 }: { d: string; size?: number; color: string; strokeWidth?: number }) {

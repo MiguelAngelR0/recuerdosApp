@@ -6,6 +6,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthScreen, PairScreen } from '@/components/Onboarding';
+import { NoticesProvider } from '@/lib/notices';
 import { SessionProvider, useSession } from '@/lib/session';
 import { SettingsProvider, useSettings } from '@/lib/settings';
 
@@ -29,13 +30,15 @@ function Gate() {
     // Fondo del tema en cada pantalla (sin él se ve un fogonazo blanco al cambiar)
     // y deslizamiento lateral nativo, igual en iOS y Android.
     content = (
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-          contentStyle: { backgroundColor: pal.sky[0] },
-        }}
-      />
+      <NoticesProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            contentStyle: { backgroundColor: pal.sky[0] },
+          }}
+        />
+      </NoticesProvider>
     );
   }
 

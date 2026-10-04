@@ -1,25 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Memory, supabase } from './supabase';
-
-const SEEN_KEY = 'recuerdos.lastSeenMemory';
 
 export type MemoryItem = Memory & { url?: string };
 export type PickedImage = { base64?: string | null; mimeType?: string | null };
-
-export async function markMemoriesSeen() {
-  await AsyncStorage.setItem(SEEN_KEY, new Date().toISOString());
-}
-
-// ¿Hay algún recuerdo de tu pareja más nuevo que la última vez que abriste Recuerdos?
-export async function hasNewMemory(myId: string) {
-  const seen = (await AsyncStorage.getItem(SEEN_KEY)) ?? '1970-01-01T00:00:00Z';
-  const { count } = await supabase
-    .from('memories')
-    .select('id', { count: 'exact', head: true })
-    .neq('author_id', myId)
-    .gt('created_at', seen);
-  return (count ?? 0) > 0;
-}
 
 // De arriba abajo de la enredadera: el de mayor posición primero.
 export async function loadMemories(): Promise<MemoryItem[]> {

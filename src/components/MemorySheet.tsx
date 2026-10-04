@@ -30,12 +30,18 @@ function longDate(d: Date) {
 export function MemorySheet({
   visible,
   memory,
+  canMoveUp,
+  canMoveDown,
+  onMove,
   onClose,
   onSave,
   onDelete,
 }: {
   visible: boolean;
   memory: MemoryItem | null;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMove?: (dir: -1 | 1) => void;
   onClose: () => void;
   onSave: (fields: MemoryFields) => Promise<void>;
   onDelete: (m: MemoryItem) => Promise<void>;
@@ -56,7 +62,8 @@ export function MemorySheet({
     setDate(memory?.happened_on ? new Date(`${memory.happened_on}T12:00:00`) : memory ? new Date(memory.created_at) : new Date());
     setImage(null);
     setError(null);
-  }, [visible, memory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, memory?.id]);
 
   const preview = image?.uri ?? memory?.url;
   const canSave = !!text.trim() || !!preview;
@@ -177,6 +184,19 @@ export function MemorySheet({
             {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>{memory ? 'Guardar cambios' : 'Guardar en la enredadera'}</Text>}
           </Pressy>
 
+          {memory && onMove && (
+            <View style={styles.moveRow}>
+              <Pressy onPress={() => onMove(-1)} disabled={!canMoveUp} scaleTo={0.96} accessibilityRole="button" style={[styles.moveBtn, { borderColor: pal.line, opacity: canMoveUp ? 1 : 0.4 }]}>
+                <Icon d={icons.up} size={18} color={pal.sheetText} strokeWidth={2.4} />
+                <Text style={[styles.moveText, { color: pal.sheetText }]}>Subir</Text>
+              </Pressy>
+              <Pressy onPress={() => onMove(1)} disabled={!canMoveDown} scaleTo={0.96} accessibilityRole="button" style={[styles.moveBtn, { borderColor: pal.line, opacity: canMoveDown ? 1 : 0.4 }]}>
+                <Icon d={icons.down} size={18} color={pal.sheetText} strokeWidth={2.4} />
+                <Text style={[styles.moveText, { color: pal.sheetText }]}>Bajar</Text>
+              </Pressy>
+            </View>
+          )}
+
           {memory && (
             <Pressy onPress={confirmDelete} disabled={busy} scaleTo={0.97} accessibilityRole="button" style={styles.delete}>
               <Icon d={icons.trash} size={18} color={pal.danger} />
@@ -207,6 +227,9 @@ const styles = StyleSheet.create({
   dateValue: { fontSize: 16, fontFamily: font.heavy },
   save: { height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveText: { color: '#FFFFFF', fontFamily: font.heavy, fontSize: 16 },
+  moveRow: { flexDirection: 'row', gap: 12 },
+  moveBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: 22, borderWidth: 1 },
+  moveText: { fontSize: 15, fontFamily: font.heavy },
   delete: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 44 },
   deleteText: { fontFamily: font.heavy, fontSize: 15 },
   error: { fontFamily: font.bold, fontSize: 14 },

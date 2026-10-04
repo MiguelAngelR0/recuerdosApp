@@ -11,7 +11,8 @@ import { Pressy } from '@/components/Pressy';
 import { RoundButton } from '@/components/RoundButton';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { StatusWheel } from '@/components/StatusWheel';
-import { hasNewMemory } from '@/lib/memories';
+import { useNotices } from '@/lib/notices';
+import { hasNew } from '@/lib/seen';
 import { useSession } from '@/lib/session';
 import { useSettings } from '@/lib/settings';
 import type { Profile } from '@/lib/supabase';
@@ -38,12 +39,15 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [wheel, setWheel] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [newMemory, setNewMemory] = useState(false);
+  const { unseen, setUnseen } = useNotices();
 
+  // Al volver a Inicio, comprueba si tu pareja creó algo mientras no mirabas.
   useFocusEffect(
     useCallback(() => {
-      if (me) hasNewMemory(me.id).then(setNewMemory).catch(() => {});
-    }, [me]),
+      if (!me) return;
+      hasNew('memories', me.id).then((v) => v && setUnseen({ memories: true })).catch(() => {});
+      hasNew('todos', me.id).then((v) => v && setUnseen({ todos: true })).catch(() => {});
+    }, [me, setUnseen]),
   );
 
   if (!me) return null;
@@ -52,9 +56,12 @@ export default function Home() {
     <View style={{ flex: 1 }}>
       <Background />
       <View style={[styles.top, { top: insets.top + 90 }]}>
-        <RoundButton icon={icons.leaf} label="Recuerdos" badge={newMemory} onPress={() => router.push('/recuerdos')} />
+        <RoundButton icon={icons.leaf} label="Recuerdos" badge={unseen.memories} onPress={() => router.push('/recuerdos')} />
         <RoundButton icon={icons.sliders} size={48} onPress={() => setSettings(true)} label="Ajustes" />
-        <RoundButton icon={icons.check} label="Tareas" onPress={() => router.push('/tareas')} />
+        <View style={styles.column}>
+          <RoundButton icon={icons.check} label="Tareas" badge={unseen.todos} onPress={() => router.push('/tareas')} />
+          <RoundButton icon={icons.timer} label="Temporizador" onPress={() => router.push('/temporizador')} />
+        </View>
       </View>
 
       <View style={styles.stage}>
@@ -100,6 +107,7 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  column: { alignItems: 'center', gap: 16 },
   top: { position: 'absolute', left: 18, right: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   stage: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: '22%', gap: 8 },
   chips: { flexDirection: 'row', gap: 12, flexWrap: 'wrap', justifyContent: 'center', paddingHorizontal: 12 },

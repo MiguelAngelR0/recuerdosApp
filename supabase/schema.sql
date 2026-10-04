@@ -45,6 +45,22 @@ create table if not exists public.todos (
   created_at timestamptz not null default now()
 );
 
+-- Token de notificaciones push del móvil
+alter table public.profiles add column if not exists push_token text;
+
+-- Temporizador compartido (una rutina por pareja) ---------------------------------
+-- phases: [{ "label": "Estudiar", "seconds": 1500 }, ...]; se repite `rounds` veces.
+-- Corriendo: tiempo = paused_elapsed + (ahora - started_at). En pausa: started_at es null.
+create table if not exists public.timers (
+  couple_id uuid primary key references public.couples on delete cascade,
+  phases jsonb not null default '[{"label":"Estudiar","seconds":1500},{"label":"Descansar","seconds":300}]',
+  rounds int not null default 4 check (rounds between 1 and 20),
+  started_at timestamptz,
+  paused_elapsed double precision not null default 0,
+  updated_by uuid references public.profiles on delete set null,
+  updated_at timestamptz not null default now()
+);
+
 -- Crea el perfil automáticamente al registrarse --------------------------------
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -121,6 +137,7 @@ alter table public.couples enable row level security;
 alter table public.profiles enable row level security;
 alter table public.memories enable row level security;
 alter table public.todos enable row level security;
+alter table public.timers enable row level security;
 
 drop policy if exists "ver mi pareja" on public.couples;
 create policy "ver mi pareja" on public.couples for select using (id = public.my_couple());
@@ -162,6 +179,11 @@ create policy "tareas de la pareja" on public.todos for all
   using (couple_id = public.my_couple())
   with check (couple_id = public.my_couple());
 
+drop policy if exists "temporizador de la pareja" on public.timers;
+create policy "temporizador de la pareja" on public.timers for all
+  using (couple_id = public.my_couple())
+  with check (couple_id = public.my_couple());
+
 -- Fotos: bucket privado, cada pareja en su carpeta ------------------------------
 insert into storage.buckets (id, name, public)
 values ('memories', 'memories', false)
@@ -183,4 +205,5 @@ begin
   begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.memories; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.todos; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.timers; exception when duplicate_object then null; end;
 end $$;

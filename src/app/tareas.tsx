@@ -10,6 +10,9 @@ import { Icon, icons } from '@/components/Icon';
 import { Pressy } from '@/components/Pressy';
 import { RoundButton } from '@/components/RoundButton';
 import { EASE_OUT, haptic } from '@/lib/motion';
+import { useNotices } from '@/lib/notices';
+import { sendPush } from '@/lib/notify';
+import { markSeen } from '@/lib/seen';
 import { useSession } from '@/lib/session';
 import { useSettings } from '@/lib/settings';
 import { supabase, Todo } from '@/lib/supabase';
@@ -27,6 +30,7 @@ const reflow = LinearTransition.duration(220).easing(EASE_OUT);
 export default function Tareas() {
   const { me, partner } = useSession();
   const { pal } = useSettings();
+  const { setUnseen } = useNotices();
   const insets = useSafeAreaInsets();
   const [todos, setTodos] = useState<Todo[] | null>(null);
   const [filter, setFilter] = useState<Filter>('todas');
@@ -46,15 +50,21 @@ export default function Tareas() {
 
   useEffect(() => {
     load();
+    markSeen('todos');
+    setUnseen({ todos: false });
     if (!me?.couple_id) return;
     const channel = supabase
       .channel(`todos-${me.couple_id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `couple_id=eq.${me.couple_id}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `couple_id=eq.${me.couple_id}` }, () => {
+        load();
+        markSeen('todos');
+        setUnseen({ todos: false });
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [load, me?.couple_id]);
+  }, [load, me?.couple_id, setUnseen]);
 
   if (!me) return null;
 
@@ -68,6 +78,7 @@ export default function Tareas() {
     setText('');
     haptic.light();
     await supabase.from('todos').insert({ couple_id: me.couple_id, author_id: me.id, text: value, assigned_to: null });
+    sendPush(partner?.push_token, 'Nueva tarea', `${me.name}: ${value}`, { route: '/tareas' });
     load();
   };
 

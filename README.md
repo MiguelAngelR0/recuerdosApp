@@ -33,12 +33,25 @@ Al terminar te da un enlace para descargar el **APK**. Pásale ese enlace a tu p
 
 **iPhone**: para instalarla de forma permanente Apple exige una cuenta de desarrollador (99 $/año). Sin ella se puede usar con Expo Go mientras el ordenador tenga `npx expo start` en marcha.
 
+## 4. Notificaciones en el móvil (opcional, gratis)
+
+Los avisos dentro de la app (mensaje arriba y puntito en los botones) funcionan siempre.
+Para que llegue una **notificación del móvil** cuando tu pareja crea algo o usa el temporizador, hace falta la app instalada (APK), no Expo Go:
+
+1. Haz el primer `npx eas-cli@latest build -p android --profile preview`: eso enlaza el proyecto con Expo.
+2. Crea un proyecto gratis en [console.firebase.google.com](https://console.firebase.google.com), añade una app Android con el paquete `com.miguelangel.recuerdos` y descarga `google-services.json` a la carpeta del proyecto.
+3. En `app.json`, dentro de `"android"`, añade `"googleServicesFile": "./google-services.json"`.
+4. En Firebase → Configuración del proyecto → Cuentas de servicio → **Generar nueva clave privada**. Súbela con `npx eas-cli@latest credentials` → Android → Push Notifications (FCM V1).
+5. Vuelve a generar el APK.
+
 ## Cómo funciona
 
 - El primero que entra pulsa **Crear nuestro rincón** y es el pollito. En **Ajustes** aparece el código de pareja.
 - El otro se registra, escribe ese código y es el osito.
 - En Inicio, toca tu personaje para elegir tu estado en la ruleta. Tu pareja lo ve al instante.
-- En Tareas, mantén pulsada una tarea para borrarla y toca la etiqueta para asignarla (Los dos → Tú → Pareja).
+- En Tareas, desliza una tarea a la izquierda para borrarla y toca la etiqueta para asignarla (Los dos → Tú → Pareja).
+- En Recuerdos, toca una tarjeta para editarla y mantenla pulsada para arrastrarla a otro sitio. Tu pareja lo ve en directo.
+- En Temporizador, configura las fases (estudiar, descansar…) y las vueltas. Los dos veis el mismo círculo.
 
 ## Estructura
 

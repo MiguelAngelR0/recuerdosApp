@@ -26,6 +26,7 @@ export type Profile = {
   character: CharacterKind;
   status: StatusId;
   status_at: string | null;
+  push_token: string | null;
 };
 
 export type Memory = {
@@ -47,4 +48,16 @@ export type Todo = {
   done: boolean;
   assigned_to: string | null;
   created_at: string;
+};
+
+export type Phase = { label: string; seconds: number };
+
+export type Timer = {
+  couple_id: string;
+  phases: Phase[];
+  rounds: number;
+  started_at: string | null;
+  paused_elapsed: number;
+  updated_by: string | null;
+  updated_at: string;
 };
